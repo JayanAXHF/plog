@@ -1,8 +1,9 @@
-use decrypt_cookies::{Browser, ChromiumBuilder};
+use decrypt_cookies::{Browser, ChromiumBuilder, FirefoxBuilder};
 
 #[tokio::main]
 pub async fn main() -> miette::Result<()> {
-    let chromium = ChromiumBuilder::new(Browser::Chromium).build().await?;
+    let chromium = FirefoxBuilder::new(Browser::Chromium).build().await?;
+    dbg!("safasf 1");
     let all_cookies = chromium.get_cookies_all().await?;
     dbg!("safasf");
     dbg!(&all_cookies[0]);
