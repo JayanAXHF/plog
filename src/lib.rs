@@ -45,7 +45,7 @@ pub async fn main() -> miette::Result<()> {
         let path = if OS == "macos" {
             format!("{std_path}/{profile}/Cookies")
         } else if OS == "windows" {
-            format!(r#"{std_path}\Network\Cookies"#)
+            format!(r#"{std_path}\{profile}\Network\Cookies"#)
         } else {
             String::new()
         };
