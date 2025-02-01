@@ -74,7 +74,8 @@ pub async fn main() -> miette::Result<()> {
                                 .clone()
                                 .unwrap()
                                 .split("wB�I")
-                                .collect::<Vec<_>>()[1],
+                                .collect::<Vec<_>>()
+                                .join(" "),
                         ))
                     })
                     .await
@@ -94,7 +95,8 @@ pub async fn main() -> miette::Result<()> {
                             .clone()
                             .unwrap()
                             .split("wB�I")
-                            .collect::<Vec<_>>()[1]
+                            .collect::<Vec<_>>()
+                            .join(" ")
                     );
                 }
 
@@ -111,7 +113,8 @@ pub async fn main() -> miette::Result<()> {
                             .clone()
                             .unwrap()
                             .split("wB�I")
-                            .collect::<Vec<_>>()[1]
+                            .collect::<Vec<_>>()
+                            .join(" ")
                     );
                 }
                 println!("\n{:-^50}\n", "");
