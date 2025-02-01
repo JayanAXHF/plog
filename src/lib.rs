@@ -35,7 +35,7 @@ pub async fn main() -> miette::Result<()> {
         )
     } else if env::consts::OS == "windows" {
         format!(
-            r#"{}\AppData\Local\Google\Chrome\User Data\"#,
+            r#"{}\AppData\Local\Google\Chrome\User Data"#,
             home_directory
         )
     } else {
