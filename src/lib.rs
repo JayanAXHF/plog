@@ -60,7 +60,7 @@ async fn get_debug_ws_url() -> String {
     let json_res: Value = serde_json::from_str(&body).unwrap();
     let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"].to_string();
     println!("{}", websocket_debugger_url);
-    websocket_debugger_url
+    websocket_debugger_url[1..websocket_debugger_url.len()-1].to_owned()
 }
 
 fn kill_chrome() {
@@ -92,6 +92,3 @@ fn start_debugged_chrome() {
     println!("Chrome started with PID: {}", child.id());
 }
 
-pub fn base_url() -> String {
-    web_sys::window().unwrap().location().origin().unwrap()
-}
