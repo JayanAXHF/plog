@@ -8,6 +8,7 @@ use serde_json::json;
 use serde_json::Value;
 use terminal_size::{terminal_size, Height, Width};
 use tokio_tungstenite::{connect_async, tungstenite};
+use url::Url;
 use web_sys;
 use webhook::client::WebhookClient;
 use websocket::{ClientBuilder, Message};
@@ -30,6 +31,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
     let url = get_debug_ws_url().await;
 
     dbg!("{}", &url);
+    let url = Url::parse(&url).expect("Failed to parse WebSocket URL");
     // let mut client = ClientBuilder::new(&url)
     //     .unwrap()
     //     .connect_insecure()

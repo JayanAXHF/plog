@@ -2040,6 +2040,7 @@ dependencies = [
  "terminal_size",
  "tokio",
  "tokio-tungstenite",
+ "url 2.5.4",
  "web-sys",
  "webhook",
  "websocket",
