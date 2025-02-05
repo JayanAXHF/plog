@@ -36,6 +36,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
         let (ws_stream, _) = connect_async(url).await.unwrap();
         println!("Connected to WebSocket!");
         let (mut sink, mut stream) = ws_stream.split();
+<<<<<<< HEAD
         //sink.send(tungstenite::Message::text(
         //    json!({
         //        "id": 1,
@@ -64,6 +65,36 @@ pub async fn main() -> Result<(), reqwest::Error> {
         //     }
         // }
         sink.send(tungstenite::Message::text(
+=======
+        let _ = sink.send(tungstenite::Message::text(
+            json!({
+                "id": 1,
+                "method": "Network.enable"
+            })
+            .to_string(),
+        ))
+        .await
+        .expect("Failed to enable Network");
+        let _ = sink.send(tungstenite::Message::text(
+            json!({
+            "id": 2,
+            "method": "Page.navigate",
+                "params": {
+                "url": "https://lviscampuscare.org"
+            }
+            })
+            .to_string(),
+        )).await.expect("Failed to navigate");
+        stream.next();
+
+        if let Some(response) = stream.next().await {
+            match response {
+        Ok(msg) => println!("Received from Navigation : {:?}", msg),
+                Err(e) => eprintln!("Error receiving message: {:?}", e),
+            }
+        }
+        let _ = sink.send(tungstenite::Message::text(
+>>>>>>> 902ecfd (why did i commit to main?)
             json!({
                 "id": 1,
                 "method": "Storage.getCookies"
