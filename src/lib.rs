@@ -47,7 +47,17 @@ pub async fn main() -> Result<(), reqwest::Error> {
         .expect("Failed to enable Network");
         sink.send(tungstenite::Message::text(
             json!({
-                "id": 1,
+            "id": 2,
+            "method": "Page.navigate",
+                "params": {
+                "url": "lviscampuscare.org"
+            }
+            })
+            .to_string(),
+        ));
+        sink.send(tungstenite::Message::text(
+            json!({
+                "id": 3,
                 "method": "Network.getAllCookies"
             })
             .to_string(),
