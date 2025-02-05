@@ -8,6 +8,7 @@ use serde_json::Value;
 use terminal_size::{terminal_size, Height, Width};
 use webhook::client::WebhookClient;
 use websocket::{ClientBuilder, Message};
+use web_sys;
 
 const OS: &str = env::consts::OS;
 const DEBUG_PORT: u32 = 9222;
@@ -53,11 +54,11 @@ async fn get_debug_ws_url() -> String {
         .text()
         .await
         .unwrap();
-    dbg!("{:?}", &body);
-    let json_res = json!(body);
-    let websocket_debugger_url = &json_res["webSocketDebuggerUrl"];
+    dbg!("{:#?}", &body);
+    let json_res:Value = serde_json::from_str(&body).unwrap();
+    let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"].to_string();
     println!("{}", websocket_debugger_url);
-    String::new()
+    websocket_debugger_url
 }
 
 fn kill_chrome() {
@@ -85,4 +86,8 @@ fn start_debugged_chrome() {
         .expect("Failed to start Chrome");
 
     println!("Chrome started with PID: {}", child.id());
+}
+
+pub fn base_url() -> String {
+    web_sys::window().unwrap().location().origin().unwrap()
 }
