@@ -25,7 +25,9 @@ pub async fn main() -> Result<(), reqwest::Error> {
     kill_chrome();
     start_debugged_chrome();
     let url = get_debug_ws_url().await;
+
     dbg!("{}", &url);
+    println!("{}", url);
     let mut client = ClientBuilder::new(&url)
         .unwrap()
         .connect_insecure()
