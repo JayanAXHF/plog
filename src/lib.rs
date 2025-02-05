@@ -25,7 +25,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
     kill_chrome();
     start_debugged_chrome();
     let url = get_debug_ws_url().await;
-    println!("{}", url);
+    dbg!("{}", &url);
     let mut client = ClientBuilder::new(&url)
         .unwrap()
         .connect_insecure()
@@ -51,7 +51,10 @@ async fn get_debug_ws_url() -> String {
         .text()
         .await
         .unwrap();
-    dbg!("{:?}", body);
+    dbg!("{:?}", &body);
+    let json_res = json!(body);
+    let websocket_debugger_url = &json_res["webSocketDebuggerUrl"];
+    println!("{}", websocket_debugger_url);
     String::new()
 }
 
