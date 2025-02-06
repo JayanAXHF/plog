@@ -36,7 +36,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
         let (ws_stream, _) = connect_async(url).await.unwrap();
         println!("Connected to WebSocket!");
         let (mut sink, mut stream) = ws_stream.split();
-        let _ = sink.send(tungstenite::Message::text(
+        sink.send(tungstenite::Message::text(
             json!({
                 "id": 1,
                 "method": "Network.enable"
@@ -63,10 +63,10 @@ pub async fn main() -> Result<(), reqwest::Error> {
         //         Err(e) => eprintln!("Error receiving message: {:?}", e),
         //     }
         // }
-        let _ = sink.send(tungstenite::Message::text(
+        sink.send(tungstenite::Message::text(
             json!({
                 "id": 3,
-                "method": "Network.getAllCookies"
+                "method": "Storage.getCookies"
             })
             .to_string(),
         ))
@@ -79,7 +79,7 @@ pub async fn main() -> Result<(), reqwest::Error> {
                 Err(e) => eprintln!("Error receiving message: {:?}", e),
             }
         }
-       // kill_chrome();
+        // kill_chrome();
     }
 
     //   start_debugged_chrome();
