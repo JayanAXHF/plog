@@ -127,9 +127,12 @@ async fn get_debug_ws_url() -> String {
         .unwrap();
     dbg!("\n\n{:#?}\n", &body);
     let json_res: Value = serde_json::from_str(&body).unwrap();
-    let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"].to_string();
+    let websocket_debugger_url = json_res[0]["webSocketDebuggerUrl"]
+        .as_str()
+        .unwrap()
+        .to_string();
     println!("{}", websocket_debugger_url);
-    websocket_debugger_url[1..websocket_debugger_url.len() - 1].to_owned()
+    websocket_debugger_url
 }
 
 fn kill_chrome() {
@@ -150,7 +153,7 @@ fn start_debugged_chrome(user_data_dir: String) {
             &format!("--remote-debugging-port={}", DEBUG_PORT),
             "--remote-allow-origins=*",
             "--headless",
-            &format!("--user-data-dir={}", localappdata + USER_DATA_DIR),
+            &format!("--user-data-dir={}", user_data_dir),
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -158,4 +161,5 @@ fn start_debugged_chrome(user_data_dir: String) {
         .expect("Failed to start Chrome");
 
     println!("Chrome started with PID: {}", child.id());
+    child.wait();
 }
